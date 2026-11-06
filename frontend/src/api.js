@@ -101,6 +101,16 @@ export const api = {
   getProfile(token, signal) {
     return request('/members/me', { token, signal });
   },
+  getMembers(token, signal) {
+    return request('/members', { token, signal });
+  },
+  updateCustomer(id, customer, token) {
+    return request(`/members/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(customer),
+    });
+  },
   login(credentials) {
     return request('/auth/login', {
       method: 'POST',

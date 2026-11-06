@@ -311,7 +311,7 @@ a {
   color: #798b7a;
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1.65px;
+  letter-spacing: 0.35px;
 }
 
 .hero-copy .eyebrow > span {
@@ -326,7 +326,7 @@ a {
   font-family: var(--sans);
   font-size: clamp(32px, 4vw, 42px);
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: normal;
   line-height: 1.2;
 }
 

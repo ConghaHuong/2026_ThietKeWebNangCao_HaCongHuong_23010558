@@ -469,6 +469,21 @@
   opacity: 0.6;
 }
 
+.admin-customer-prompt {
+  margin: 0;
+  color: #929a91;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.admin-customer-table {
+  min-width: 650px;
+}
+
+.admin-customer-table td {
+  vertical-align: middle;
+}
+
 .admin-empty {
   padding: 50px 20px;
   border: 1px solid #e8eae5;

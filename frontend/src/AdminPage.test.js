@@ -7,6 +7,7 @@ jest.mock('./api', () => ({
     getBooks: jest.fn(),
     getCategories: jest.fn(),
     getOrders: jest.fn(),
+    getMembers: jest.fn(),
     createBook: jest.fn(),
     uploadBookImage: jest.fn(),
     updateBook: jest.fn(),
@@ -16,6 +17,7 @@ jest.mock('./api', () => ({
     deleteCategory: jest.fn(),
     confirmOrder: jest.fn(),
     cancelOrder: jest.fn(),
+    updateCustomer: jest.fn(),
   },
 }));
 
@@ -23,11 +25,13 @@ beforeEach(() => {
   api.getBooks.mockResolvedValue([]);
   api.getCategories.mockResolvedValue([{ id: 2, name: 'Văn học' }]);
   api.getOrders.mockResolvedValue([]);
+  api.getMembers.mockResolvedValue([]);
   api.createBook.mockResolvedValue({});
   api.uploadBookImage.mockResolvedValue({ imageUrl: '/uploads/book.jpg' });
   api.createCategory.mockResolvedValue({});
   api.confirmOrder.mockResolvedValue({});
   api.cancelOrder.mockResolvedValue({});
+  api.updateCustomer.mockResolvedValue({});
 });
 
 test('creates a product with its selected category and refreshes the public catalogue', async () => {
@@ -48,8 +52,9 @@ test('creates a product with its selected category and refreshes the public cata
     target: { value: '2' },
   });
   fireEvent.change(screen.getByLabelText('Giá bán (₫)'), {
-    target: { value: '25000' },
+    target: { value: '59000' },
   });
+  expect(screen.getByLabelText('Giá bán (₫)')).toHaveAttribute('step', '1');
   fireEvent.click(screen.getByRole('button', { name: 'Thêm sản phẩm' }));
 
   await waitFor(() => {
@@ -60,7 +65,7 @@ test('creates a product with its selected category and refreshes the public cata
         isbn: '9781234567890',
         publishedYear: new Date().getFullYear(),
         quantity: 1,
-        price: 25000,
+        price: 59000,
         categoryId: 2,
         description: '',
         imageUrl: '',
@@ -177,4 +182,56 @@ test('requires confirmation before cancelling an order', async () => {
   });
   expect(confirmDialog).toHaveBeenCalledWith(expect.stringContaining('#43'));
   confirmDialog.mockRestore();
+});
+
+test('searches and updates customer contact information', async () => {
+  const customer = {
+    id: 8,
+    membershipNumber: 'MB0008',
+    role: 'member',
+    fullName: 'Nguyễn An',
+    email: 'an@example.com',
+    phone: '0900000000',
+    address: 'Địa chỉ cũ',
+    isActive: true,
+  };
+  api.updateCustomer.mockResolvedValue({
+    ...customer,
+    fullName: 'Nguyễn Bình',
+    email: 'binh@example.com',
+  });
+  api.getMembers.mockResolvedValueOnce([customer]).mockResolvedValueOnce([
+    { ...customer, fullName: 'Nguyễn Bình', email: 'binh@example.com' },
+  ]);
+  render(<AdminPage token="admin-token" onBooksChanged={jest.fn()} />);
+  await screen.findByRole('heading', { name: 'Thêm sản phẩm' });
+  fireEvent.click(screen.getByRole('tab', { name: 'Khách hàng' }));
+  expect(await screen.findByText('Nguyễn An')).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Tìm khách hàng'), {
+    target: { value: 'an@example.com' },
+  });
+  expect(screen.getByText('Nguyễn An')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Cập nhật' }));
+  fireEvent.change(screen.getByLabelText('Họ và tên'), {
+    target: { value: 'Nguyễn Bình' },
+  });
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 'binh@example.com' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Cập nhật khách hàng' }));
+
+  await waitFor(() => {
+    expect(api.updateCustomer).toHaveBeenCalledWith(
+      8,
+      {
+        fullName: 'Nguyễn Bình',
+        email: 'binh@example.com',
+        phone: '0900000000',
+        address: 'Địa chỉ cũ',
+      },
+      'admin-token',
+    );
+    expect(screen.getByText(/Đã cập nhật thông tin khách hàng #8/)).toBeInTheDocument();
+  });
 });

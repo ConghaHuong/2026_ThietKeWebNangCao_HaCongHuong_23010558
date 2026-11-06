@@ -9,6 +9,7 @@ jest.mock('./api', () => ({
     login: jest.fn(),
     register: jest.fn(),
     getCategories: jest.fn(),
+    getMembers: jest.fn(),
     createBook: jest.fn(),
     updateBook: jest.fn(),
     deleteBook: jest.fn(),
@@ -47,6 +48,7 @@ beforeEach(() => {
   window.sessionStorage.clear();
   api.getBooks.mockResolvedValue(sampleBooks);
   api.getProfile.mockResolvedValue({ fullName: 'Bạn đọc' });
+  api.getMembers.mockResolvedValue([]);
   api.login.mockReset();
   api.register.mockReset();
   api.getCategories.mockResolvedValue([]);

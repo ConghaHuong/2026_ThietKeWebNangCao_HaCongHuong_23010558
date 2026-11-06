@@ -15,6 +15,7 @@ const emptyBook = {
 };
 
 const emptyCategory = { name: '', description: '' };
+const emptyCustomer = { fullName: '', email: '', phone: '', address: '' };
 const orderStatusLabels = {
   pending: 'Chờ xác nhận',
   confirmed: 'Đã xác nhận',
@@ -38,17 +39,21 @@ function AdminPage({ token, onBooksChanged }) {
   const [books, setBooks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [activeTab, setActiveTab] = useState('books');
   const [bookSearch, setBookSearch] = useState('');
   const [categorySearch, setCategorySearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [bookForm, setBookForm] = useState(emptyBook);
   const [bookImage, setBookImage] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [categoryForm, setCategoryForm] = useState(emptyCategory);
+  const [customerForm, setCustomerForm] = useState(emptyCustomer);
   const [editingBookId, setEditingBookId] = useState(null);
   const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState(null);
@@ -58,14 +63,16 @@ function AdminPage({ token, onBooksChanged }) {
   const loadData = useCallback(async (signal) => {
     setError('');
     try {
-      const [nextBooks, nextCategories, nextOrders] = await Promise.all([
+      const [nextBooks, nextCategories, nextOrders, nextMembers] = await Promise.all([
         api.getBooks(signal),
         api.getCategories(signal),
         api.getOrders(token, signal),
+        api.getMembers(token, signal),
       ]);
       setBooks(nextBooks);
       setCategories(nextCategories);
       setOrders(nextOrders);
+      setCustomers(nextMembers.filter((member) => member.role === 'member'));
     } catch (loadError) {
       if (loadError.name !== 'AbortError') setError(loadError.message);
     } finally {
@@ -119,6 +126,23 @@ function AdminPage({ token, onBooksChanged }) {
     });
   }, [orders, orderSearch, orderStatusFilter]);
 
+  const filteredCustomers = useMemo(() => {
+    const term = normalize(customerSearch.trim());
+    if (!term) return customers;
+    return customers.filter((customer) =>
+      [
+        customer.id,
+        customer.membershipNumber,
+        customer.fullName,
+        customer.email,
+        customer.phone,
+        customer.address,
+      ]
+        .filter(Boolean)
+        .some((value) => normalize(value).includes(term)),
+    );
+  }, [customers, customerSearch]);
+
   const refreshData = async () => {
     await loadData();
     onBooksChanged();
@@ -134,6 +158,52 @@ function AdminPage({ token, onBooksChanged }) {
   const resetCategoryForm = () => {
     setCategoryForm(emptyCategory);
     setEditingCategoryId(null);
+  };
+
+  const editCustomer = (customer) => {
+    setEditingCustomerId(customer.id);
+    setCustomerForm({
+      fullName: customer.fullName || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      address: customer.address || '',
+    });
+  };
+
+  const resetCustomerForm = () => {
+    setCustomerForm(emptyCustomer);
+    setEditingCustomerId(null);
+  };
+
+  const handleCustomerSubmit = async (event) => {
+    event.preventDefault();
+    if (!editingCustomerId) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const updatedCustomer = await api.updateCustomer(
+        editingCustomerId,
+        {
+          fullName: customerForm.fullName.trim(),
+          email: customerForm.email.trim(),
+          phone: customerForm.phone.trim() || null,
+          address: customerForm.address.trim() || null,
+        },
+        token,
+      );
+      setCustomers((currentCustomers) =>
+        currentCustomers.map((customer) =>
+          customer.id === updatedCustomer.id ? { ...customer, ...updatedCustomer } : customer,
+        ),
+      );
+      setNotice(`Đã cập nhật thông tin khách hàng #${editingCustomerId}.`);
+      resetCustomerForm();
+    } catch (customerError) {
+      setError(customerError.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleBookSubmit = async (event) => {
@@ -316,6 +386,7 @@ function AdminPage({ token, onBooksChanged }) {
           <span><strong>{books.length}</strong> sản phẩm</span>
           <span><strong>{categories.length}</strong> danh mục</span>
           <span><strong>{orders.length}</strong> đơn hàng</span>
+          <span><strong>{customers.length}</strong> khách hàng</span>
         </div>
       </div>
 
@@ -349,6 +420,16 @@ function AdminPage({ token, onBooksChanged }) {
           onClick={() => setActiveTab('orders')}
         >
           Đơn hàng
+        </button>
+        <button
+          id="customers-tab"
+          className={activeTab === 'customers' ? 'active' : ''}
+          role="tab"
+          aria-selected={activeTab === 'customers'}
+          aria-controls="customers-panel"
+          onClick={() => setActiveTab('customers')}
+        >
+          Khách hàng
         </button>
       </div>
 
@@ -408,7 +489,7 @@ function AdminPage({ token, onBooksChanged }) {
                 <div className="admin-form-row">
                   <label>
                     Giá bán (₫)
-                    <input type="number" min="1" step="1000" required value={bookForm.price} onChange={(event) => setBookForm({ ...bookForm, price: event.target.value })} />
+                    <input type="number" min="1" step="1" required value={bookForm.price} onChange={(event) => setBookForm({ ...bookForm, price: event.target.value })} />
                   </label>
                   <label>
                     Ảnh sản phẩm
@@ -547,7 +628,7 @@ function AdminPage({ token, onBooksChanged }) {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'orders' ? (
             <section id="orders-panel" className="admin-card admin-orders-card" role="tabpanel" aria-labelledby="orders-tab">
               <div className="admin-card-heading">
                 <div>
@@ -646,6 +727,115 @@ function AdminPage({ token, onBooksChanged }) {
                 </table>
               </div>
             </section>
+          ) : (
+            <div id="customers-panel" className="admin-layout customer-layout" role="tabpanel" aria-labelledby="customers-tab">
+              <form className="admin-card admin-form" onSubmit={handleCustomerSubmit}>
+                <div className="admin-card-heading">
+                  <div>
+                    <span className="eyebrow">{editingCustomerId ? 'CẬP NHẬT' : 'KHÁCH HÀNG'}</span>
+                    <h2>{editingCustomerId ? 'Cập nhật khách hàng' : 'Thông tin khách hàng'}</h2>
+                  </div>
+                  {editingCustomerId && (
+                    <button className="admin-text-button" type="button" onClick={resetCustomerForm}>
+                      Bỏ chọn
+                    </button>
+                  )}
+                </div>
+                {editingCustomerId ? (
+                  <>
+                    <label>
+                      Họ và tên
+                      <input
+                        required
+                        maxLength="150"
+                        value={customerForm.fullName}
+                        onChange={(event) => setCustomerForm({ ...customerForm, fullName: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Email
+                      <input
+                        required
+                        type="email"
+                        maxLength="255"
+                        value={customerForm.email}
+                        onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Số điện thoại
+                      <input
+                        type="tel"
+                        maxLength="30"
+                        value={customerForm.phone}
+                        onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Địa chỉ
+                      <textarea
+                        rows="3"
+                        maxLength="255"
+                        value={customerForm.address}
+                        onChange={(event) => setCustomerForm({ ...customerForm, address: event.target.value })}
+                      />
+                    </label>
+                    <button className="button button-primary admin-submit" type="submit" disabled={saving}>
+                      {saving ? 'Đang cập nhật...' : 'Cập nhật khách hàng'}
+                    </button>
+                  </>
+                ) : (
+                  <p className="admin-customer-prompt">Chọn một khách hàng trong danh sách để xem và cập nhật thông tin.</p>
+                )}
+              </form>
+
+              <div className="admin-card admin-list-card">
+                <div className="admin-card-heading">
+                  <div>
+                    <span className="eyebrow">THÀNH VIÊN</span>
+                    <h2>Danh sách khách hàng</h2>
+                    <p className="admin-list-hint">Chỉ tài khoản bạn đọc được hiển thị tại đây.</p>
+                  </div>
+                  <label className="admin-search">
+                    <span className="sr-only">Tìm khách hàng</span>
+                    <input
+                      type="search"
+                      value={customerSearch}
+                      onChange={(event) => setCustomerSearch(event.target.value)}
+                      placeholder="Tên, email, số điện thoại..."
+                    />
+                  </label>
+                </div>
+                <div className="admin-table-wrap">
+                  <table className="admin-table admin-customer-table">
+                    <thead>
+                      <tr><th>Khách hàng</th><th>Liên hệ</th><th>Trạng thái</th><th>Thao tác</th></tr>
+                    </thead>
+                    <tbody>
+                      {filteredCustomers.map((customer) => (
+                        <tr key={customer.id}>
+                          <td>
+                            <strong>{customer.fullName}</strong>
+                            <span>{customer.membershipNumber}</span>
+                          </td>
+                          <td>
+                            <strong>{customer.email}</strong>
+                            <span>{customer.phone || 'Chưa có số điện thoại'} · {customer.address || 'Chưa có địa chỉ'}</span>
+                          </td>
+                          <td>{customer.isActive ? 'Đang hoạt động' : 'Đã khóa'}</td>
+                          <td className="admin-row-actions">
+                            <button type="button" onClick={() => editCustomer(customer)}>Cập nhật</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredCustomers.length === 0 && (
+                        <tr><td className="admin-no-results" colSpan="4">Không tìm thấy khách hàng.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}
