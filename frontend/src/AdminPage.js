@@ -15,6 +15,12 @@ const emptyBook = {
 };
 
 const emptyCategory = { name: '', description: '' };
+const orderStatusLabels = {
+  pending: 'Chờ xác nhận',
+  confirmed: 'Đã xác nhận',
+  completed: 'Hoàn tất',
+  cancelled: 'Đã hủy',
+};
 
 const normalize = (value) =>
   String(value ?? '')
@@ -23,12 +29,20 @@ const normalize = (value) =>
     .toLocaleLowerCase('vi')
     .replace(/đ/g, 'd');
 
+const formatPrice = (price) => `${Number(price || 0).toLocaleString('vi-VN')} ₫`;
+
+const formatOrderDate = (date) =>
+  new Date(date).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+
 function AdminPage({ token, onBooksChanged }) {
   const [books, setBooks] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('books');
   const [bookSearch, setBookSearch] = useState('');
   const [categorySearch, setCategorySearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [bookForm, setBookForm] = useState(emptyBook);
   const [bookImage, setBookImage] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -37,24 +51,27 @@ function AdminPage({ token, onBooksChanged }) {
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingOrderId, setSavingOrderId] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const loadData = useCallback(async (signal) => {
     setError('');
     try {
-      const [nextBooks, nextCategories] = await Promise.all([
+      const [nextBooks, nextCategories, nextOrders] = await Promise.all([
         api.getBooks(signal),
         api.getCategories(signal),
+        api.getOrders(token, signal),
       ]);
       setBooks(nextBooks);
       setCategories(nextCategories);
+      setOrders(nextOrders);
     } catch (loadError) {
       if (loadError.name !== 'AbortError') setError(loadError.message);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -81,6 +98,26 @@ function AdminPage({ token, onBooksChanged }) {
         .some((value) => normalize(value).includes(term)),
     );
   }, [categories, categorySearch]);
+
+  const filteredOrders = useMemo(() => {
+    const term = normalize(orderSearch.trim());
+    return orders.filter((order) => {
+      const matchesStatus = !orderStatusFilter || order.status === orderStatusFilter;
+      const matchesTerm =
+        !term ||
+        [
+          order.id,
+          order.customerName,
+          order.phone,
+          order.address,
+          order.member?.fullName,
+          order.member?.email,
+        ]
+          .filter(Boolean)
+          .some((value) => normalize(value).includes(term));
+      return matchesStatus && matchesTerm;
+    });
+  }, [orders, orderSearch, orderStatusFilter]);
 
   const refreshData = async () => {
     await loadData();
@@ -231,17 +268,54 @@ function AdminPage({ token, onBooksChanged }) {
     }
   };
 
+  const updateOrderStatus = async (order, action) => {
+    if (
+      action === 'cancel' &&
+      !window.confirm(`Bạn có chắc muốn hủy đơn hàng #${order.id}? Tồn kho sẽ được hoàn lại.`)
+    ) {
+      return;
+    }
+
+    setSavingOrderId(order.id);
+    setError('');
+    setNotice('');
+    let successMessage;
+    try {
+      if (action === 'confirm') {
+        await api.confirmOrder(order.id, token);
+        successMessage = `Đã xác nhận đơn hàng #${order.id}.`;
+      } else {
+        await api.cancelOrder(order.id, token);
+        successMessage = `Đã hủy đơn hàng #${order.id} và hoàn lại tồn kho.`;
+      }
+    } catch (orderError) {
+      setError(orderError.message);
+      setSavingOrderId(null);
+      return;
+    }
+
+    setNotice(successMessage);
+    try {
+      setOrders(await api.getOrders(token));
+    } catch (refreshError) {
+      setError(`Đã cập nhật đơn hàng nhưng không thể tải lại danh sách: ${refreshError.message}`);
+    } finally {
+      setSavingOrderId(null);
+    }
+  };
+
   return (
     <section className="admin-page" aria-labelledby="admin-title">
       <div className="admin-heading">
         <div>
           <span className="eyebrow">BOKOS · QUẢN TRỊ</span>
           <h1 id="admin-title">Quản lý thư viện</h1>
-          <p>Quản lý sản phẩm và danh mục hiển thị trên trang người đọc.</p>
+          <p>Quản lý sản phẩm, danh mục và đơn đặt hàng của bạn đọc.</p>
         </div>
         <div className="admin-stats">
           <span><strong>{books.length}</strong> sản phẩm</span>
           <span><strong>{categories.length}</strong> danh mục</span>
+          <span><strong>{orders.length}</strong> đơn hàng</span>
         </div>
       </div>
 
@@ -265,6 +339,16 @@ function AdminPage({ token, onBooksChanged }) {
           onClick={() => setActiveTab('categories')}
         >
           Danh mục
+        </button>
+        <button
+          id="orders-tab"
+          className={activeTab === 'orders' ? 'active' : ''}
+          role="tab"
+          aria-selected={activeTab === 'orders'}
+          aria-controls="orders-panel"
+          onClick={() => setActiveTab('orders')}
+        >
+          Đơn hàng
         </button>
       </div>
 
@@ -400,7 +484,7 @@ function AdminPage({ token, onBooksChanged }) {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'categories' ? (
             <div id="categories-panel" className="admin-layout category-layout" role="tabpanel" aria-labelledby="categories-tab">
               <form className="admin-card admin-form" onSubmit={handleCategorySubmit}>
                 <div className="admin-card-heading">
@@ -463,6 +547,105 @@ function AdminPage({ token, onBooksChanged }) {
                 </div>
               </div>
             </div>
+          ) : (
+            <section id="orders-panel" className="admin-card admin-orders-card" role="tabpanel" aria-labelledby="orders-tab">
+              <div className="admin-card-heading">
+                <div>
+                  <span className="eyebrow">ĐẶT HÀNG</span>
+                  <h2>Danh sách đơn hàng</h2>
+                  <p className="admin-list-hint">Xác nhận hoặc hủy đơn. Hệ thống không gửi email.</p>
+                </div>
+                <div className="admin-order-filters">
+                  <label className="admin-search">
+                    <span className="sr-only">Tìm đơn hàng</span>
+                    <input
+                      type="search"
+                      value={orderSearch}
+                      onChange={(event) => setOrderSearch(event.target.value)}
+                      placeholder="Tìm mã đơn, khách hàng..."
+                    />
+                  </label>
+                  <label className="admin-order-status-filter">
+                    <span className="sr-only">Lọc trạng thái đơn hàng</span>
+                    <select value={orderStatusFilter} onChange={(event) => setOrderStatusFilter(event.target.value)}>
+                      <option value="">Tất cả trạng thái</option>
+                      {Object.entries(orderStatusLabels).map(([status, label]) => (
+                        <option key={status} value={status}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="admin-table-wrap">
+                <table className="admin-table admin-orders-table">
+                  <thead>
+                    <tr><th>Đơn hàng</th><th>Người đặt / người nhận</th><th>Thanh toán</th><th>Tổng tiền</th><th>Trạng thái</th><th>Thao tác</th></tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <strong>#{order.id}</strong>
+                          <span>{formatOrderDate(order.createdAt)}</span>
+                          <details className="admin-order-details">
+                            <summary>Chi tiết đơn ({order.items?.length || 0} sản phẩm)</summary>
+                            <ul>
+                              {(order.items || []).map((item) => (
+                                <li key={item.id}>
+                                  <span>{item.bookTitle} × {item.quantity}</span>
+                                  <strong>{formatPrice(Number(item.unitPrice) * item.quantity)}</strong>
+                                </li>
+                              ))}
+                            </ul>
+                            <p><strong>Người nhận:</strong> {order.customerName} · {order.phone}</p>
+                            <p><strong>Địa chỉ:</strong> {order.address}</p>
+                            {order.note && <p><strong>Ghi chú:</strong> {order.note}</p>}
+                          </details>
+                        </td>
+                        <td>
+                          <strong>{order.member?.fullName || 'Bạn đọc'}</strong>
+                          <span>{order.member?.email || order.customerName} · {order.phone}</span>
+                        </td>
+                        <td>
+                          <strong>{order.paymentMethod === 'cod' ? 'COD' : order.paymentMethod}</strong>
+                          <span>{order.paymentStatus === 'unpaid' ? 'Chưa thanh toán' : order.paymentStatus}</span>
+                        </td>
+                        <td><strong>{formatPrice(order.totalAmount)}</strong></td>
+                        <td>
+                          <span className={`admin-order-status ${order.status}`}>
+                            {orderStatusLabels[order.status] || order.status}
+                          </span>
+                        </td>
+                        <td className="admin-row-actions admin-order-actions">
+                          {order.status === 'pending' && (
+                            <button
+                              type="button"
+                              disabled={savingOrderId === order.id}
+                              onClick={() => updateOrderStatus(order, 'confirm')}
+                            >
+                              Xác nhận
+                            </button>
+                          )}
+                          {['pending', 'confirmed'].includes(order.status) && (
+                            <button
+                              className="danger"
+                              type="button"
+                              disabled={savingOrderId === order.id}
+                              onClick={() => updateOrderStatus(order, 'cancel')}
+                            >
+                              Hủy đơn
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredOrders.length === 0 && (
+                      <tr><td className="admin-no-results" colSpan="6">Không tìm thấy đơn hàng phù hợp.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           )}
         </>
       )}

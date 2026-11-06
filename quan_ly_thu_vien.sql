@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS members (
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     status ENUM('pending', 'confirmed', 'completed', 'cancelled') NOT NULL DEFAULT 'pending',
+    payment_method ENUM('cod') NOT NULL DEFAULT 'cod',
+    payment_status ENUM('unpaid') NOT NULL DEFAULT 'unpaid',
     customer_name VARCHAR(150) NOT NULL,
     phone VARCHAR(30) NOT NULL,
     address VARCHAR(255) NOT NULL,

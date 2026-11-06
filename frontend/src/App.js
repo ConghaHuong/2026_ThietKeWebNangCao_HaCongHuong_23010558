@@ -44,6 +44,7 @@ function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
+  const [orderReceipt, setOrderReceipt] = useState(null);
   const [checkoutForm, setCheckoutForm] = useState({
     customerName: '',
     phone: '',
@@ -203,11 +204,15 @@ function App() {
           quantity: cartQuantity,
         })),
       }, authToken);
+      setOrderReceipt({
+        id: order.id,
+        totalAmount: Number(order.totalAmount ?? cartTotal),
+      });
       setCartItems([]);
       setCartOpen(false);
       setCheckoutOpen(false);
       setCheckoutForm({ customerName: member?.fullName || '', phone: '', address: '', note: '' });
-      setAuthMessage(`Đặt hàng thành công${order.id ? ` · Mã đơn #${order.id}` : ''}. Thư viện sẽ liên hệ với bạn.`);
+      setAuthMessage('');
       await loadBooks();
     } catch (error) {
       setCheckoutError(error.message);
@@ -363,208 +368,208 @@ function App() {
           />
         ) : (
           <>
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <span className="brand-mark hero-logo" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-            <span className="eyebrow"><span /> MỘT GÓC NHỎ ĐỂ LỚN LÊN</span>
-            <h1 id="hero-title">
-              Mở một trang sách,
-              <br />
-              <em>mở một chân trời.</em>
-            </h1>
-            <p>
-              Tìm cuốn sách tiếp theo bạn yêu thích trong bộ sưu tập của thư
-              viện. Một hành trình mới luôn bắt đầu từ đây.
-            </p>
-            <div className="hero-actions">
-              <a className="button button-primary hero-button" href="#catalog">
-                Bắt đầu
-              </a>
-              <a className="button button-outline hero-button" href="#about">
-                Tìm hiểu thư viện
-              </a>
-            </div>
-            <div className="hero-note">
-              <span className="reader-avatars" aria-hidden="true">
-                <i>H</i>
-                <i>M</i>
-                <i>A</i>
-              </span>
-              <span>Cùng cộng đồng yêu sách mỗi ngày</span>
-            </div>
-          </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="sun-disc" />
-            <div className="plant plant-left"><i /><i /><i /><b /></div>
-            <div className="book-stack">
-              <div className="book-cover cover-back"><span>NHỮNG NGÀY<br />THƠ ẤU</span></div>
-              <div className="book-cover cover-middle"><span>ĐI TÌM<br />LẼ SỐNG</span></div>
-              <div className="book-cover cover-front">
-                <span className="cover-kicker">MỘT CUỐN SÁCH</span>
-                <span className="cover-title">KHU VƯỜN<br />BÍ MẬT</span>
-                <span className="cover-author">FRANCES HODGSON BURNETT</span>
-                <span className="cover-sun" />
+            <section className="hero" aria-labelledby="hero-title">
+              <div className="hero-copy">
+                <span className="brand-mark hero-logo" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="eyebrow"><span /> MỘT GÓC NHỎ ĐỂ LỚN LÊN</span>
+                <h1 id="hero-title">
+                  Mở một trang sách,
+                  <br />
+                  <em>mở một chân trời.</em>
+                </h1>
+                <p>
+                  Tìm cuốn sách tiếp theo bạn yêu thích trong bộ sưu tập của thư
+                  viện. Một hành trình mới luôn bắt đầu từ đây.
+                </p>
+                <div className="hero-actions">
+                  <a className="button button-primary hero-button" href="#catalog">
+                    Bắt đầu
+                  </a>
+                  <a className="button button-outline hero-button" href="#about">
+                    Tìm hiểu thư viện
+                  </a>
+                </div>
+                <div className="hero-note">
+                  <span className="reader-avatars" aria-hidden="true">
+                    <i>H</i>
+                    <i>M</i>
+                    <i>A</i>
+                  </span>
+                  <span>Cùng cộng đồng yêu sách mỗi ngày</span>
+                </div>
               </div>
-            </div>
-            <div className="plant plant-right"><i /><i /><i /><b /></div>
-            <span className="art-sparkle sparkle-one">✳</span>
-            <span className="art-sparkle sparkle-two">✳</span>
-            <div className="art-caption"><span>01 / 03</span> NHỮNG CÂU CHUYỆN ĐANG CHỜ BẠN</div>
-          </div>
-          <div className="hero-index" aria-hidden="true">01 — 03</div>
-        </section>
-
-        <section className="catalog-section" id="catalog" aria-labelledby="catalog-title">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">GÓC SÁCH CỦA MỘC</span>
-              <h2 id="catalog-title">Tìm câu chuyện của bạn</h2>
-              <p>Những cuốn sách hay đang đợi được khám phá.</p>
-            </div>
-            <div className="catalog-controls">
-              <label className="category-filter">
-                <span>Danh mục</span>
-                <select
-                  value={selectedCategory}
-                  onChange={(event) => setSelectedCategory(event.target.value)}
-                  aria-label="Lọc sách theo danh mục"
-                >
-                  <option value="">Tất cả danh mục</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="search-box">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Tìm tên sách, tác giả, ISBN..."
-                  aria-label="Tìm sản phẩm theo tên sách, tác giả, ISBN hoặc danh mục"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="catalog-meta">
-            <span>
-              {booksLoading
-                ? 'Đang tải bộ sưu tập...'
-                : `${filteredBooks.length} cuốn sách`}
-            </span>
-            <span className="catalog-total">
-              <i /> {books.length} đầu sách · {totalCopies} bản trong thư viện
-            </span>
-          </div>
-
-          {booksError ? (
-            <div className="feedback-panel error-panel" role="alert">
-              <div>
-                <strong>Chưa thể tải bộ sưu tập</strong>
-                <p>{booksError}</p>
+              <div className="hero-art" aria-hidden="true">
+                <div className="sun-disc" />
+                <div className="plant plant-left"><i /><i /><i /><b /></div>
+                <div className="book-stack">
+                  <div className="book-cover cover-back"><span>NHỮNG NGÀY<br />THƠ ẤU</span></div>
+                  <div className="book-cover cover-middle"><span>ĐI TÌM<br />LẼ SỐNG</span></div>
+                  <div className="book-cover cover-front">
+                    <span className="cover-kicker">MỘT CUỐN SÁCH</span>
+                    <span className="cover-title">KHU VƯỜN<br />BÍ MẬT</span>
+                    <span className="cover-author">FRANCES HODGSON BURNETT</span>
+                    <span className="cover-sun" />
+                  </div>
+                </div>
+                <div className="plant plant-right"><i /><i /><i /><b /></div>
+                <span className="art-sparkle sparkle-one">✳</span>
+                <span className="art-sparkle sparkle-two">✳</span>
+                <div className="art-caption"><span>01 / 03</span> NHỮNG CÂU CHUYỆN ĐANG CHỜ BẠN</div>
               </div>
-              <button
-                className="button button-outline button-small"
-                onClick={() => loadBooks()}
-              >
-                Thử lại
-              </button>
-            </div>
-          ) : booksLoading ? (
-            <div className="loading-grid" aria-label="Đang tải sách">
-              {[1, 2, 3, 4].map((item) => (
-                <div className="book-skeleton" key={item} />
-              ))}
-            </div>
-          ) : filteredBooks.length ? (
-            <div className="book-grid">
-              {filteredBooks.map((book, index) => (
-                <article className="book-card" key={book.id}>
-                  <button
-                    className={`book-visual book-visual-${index % 4}`}
-                    onClick={() => setSelectedBook(book)}
-                    aria-label={`Xem thông tin sách ${book.title}`}
-                  >
-                    {book.imageUrl && (
-                      <img className="book-product-image" src={book.imageUrl} alt="" />
-                    )}
-                    <span className="book-visual-label">MỘC · TỦ SÁCH</span>
-                    <span className="book-visual-title">{book.title}</span>
-                    <span className="book-visual-author">{book.author}</span>
-                    <span className="book-visual-decoration" aria-hidden="true">
-                      {['✳', '◉', '✺', '❋'][index % 4]}
-                    </span>
-                  </button>
-                  <div className="book-details">
-                    <div>
-                      <h3>{book.title}</h3>
-                      <p>{book.author}</p>
-                    </div>
-                    <button
-                      className="details-button"
-                      onClick={() => setSelectedBook(book)}
-                      aria-label={`Xem chi tiết ${book.title}`}
+              <div className="hero-index" aria-hidden="true">01 — 03</div>
+            </section>
+
+            <section className="catalog-section" id="catalog" aria-labelledby="catalog-title">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">GÓC SÁCH CỦA BOKOS</span>
+                  <h2 id="catalog-title">Tìm câu chuyện của bạn</h2>
+                  <p>Những cuốn sách hay đang đợi được khám phá.</p>
+                </div>
+                <div className="catalog-controls">
+                  <label className="category-filter">
+                    <span>Danh mục</span>
+                    <select
+                      value={selectedCategory}
+                      onChange={(event) => setSelectedCategory(event.target.value)}
+                      aria-label="Lọc sách theo danh mục"
                     >
-                      ↗
-                    </button>
-                  </div>
-                  <div className="book-meta">
-                    <strong>{formatPrice(book.price)}</strong>
-                    <span>{book.category?.name || 'Chưa phân loại'}</span>
-                    <span>{book.publishedYear || 'Sách hay'}</span>
-                    <span>{book.quantity} bản</span>
+                      <option value="">Tất cả danh mục</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="search-box">
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                      type="search"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Tìm tên sách, tác giả, ISBN..."
+                      aria-label="Tìm sản phẩm theo tên sách, tác giả, ISBN hoặc danh mục"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="catalog-meta">
+                <span>
+                  {booksLoading
+                    ? 'Đang tải bộ sưu tập...'
+                    : `${filteredBooks.length} cuốn sách`}
+                </span>
+                <span className="catalog-total">
+                  <i /> {books.length} đầu sách · {totalCopies} bản trong thư viện
+                </span>
+              </div>
+
+              {booksError ? (
+                <div className="feedback-panel error-panel" role="alert">
+                  <div>
+                    <strong>Chưa thể tải bộ sưu tập</strong>
+                    <p>{booksError}</p>
                   </div>
                   <button
-                    className="button button-primary add-to-cart-button"
-                    onClick={() => addToCart(book)}
-                    disabled={book.quantity < 1 || Number(book.price) < 1}
+                    className="button button-outline button-small"
+                    onClick={() => loadBooks()}
                   >
-                    {book.quantity < 1
-                      ? 'Tạm hết hàng'
-                      : Number(book.price) < 1
-                        ? 'Chưa có giá'
-                        : 'Thêm vào giỏ'}
+                    Thử lại
                   </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="feedback-panel empty-panel">
-              <span className="empty-icon" aria-hidden="true">⌕</span>
-              <strong>
-                {search || selectedCategory
-                  ? 'Không tìm thấy cuốn sách phù hợp'
-                  : 'Tủ sách đang được cập nhật'}
-              </strong>
-              <p>
-                {search || selectedCategory
-                  ? 'Thử thay đổi từ khóa tìm kiếm hoặc chọn danh mục khác nhé.'
-                  : 'Hãy quay lại sau để khám phá những đầu sách mới.'}
-              </p>
-            </div>
-          )}
-        </section>
+                </div>
+              ) : booksLoading ? (
+                <div className="loading-grid" aria-label="Đang tải sách">
+                  {[1, 2, 3, 4].map((item) => (
+                    <div className="book-skeleton" key={item} />
+                  ))}
+                </div>
+              ) : filteredBooks.length ? (
+                <div className="book-grid">
+                  {filteredBooks.map((book, index) => (
+                    <article className="book-card" key={book.id}>
+                      <button
+                        className={`book-visual book-visual-${index % 4}`}
+                        onClick={() => setSelectedBook(book)}
+                        aria-label={`Xem thông tin sách ${book.title}`}
+                      >
+                        {book.imageUrl && (
+                          <img className="book-product-image" src={book.imageUrl} alt="" />
+                        )}
+                        <span className="book-visual-label">MỘC · TỦ SÁCH</span>
+                        <span className="book-visual-title">{book.title}</span>
+                        <span className="book-visual-author">{book.author}</span>
+                        <span className="book-visual-decoration" aria-hidden="true">
+                          {['✳', '◉', '✺', '❋'][index % 4]}
+                        </span>
+                      </button>
+                      <div className="book-details">
+                        <div>
+                          <h3>{book.title}</h3>
+                          <p>{book.author}</p>
+                        </div>
+                        <button
+                          className="details-button"
+                          onClick={() => setSelectedBook(book)}
+                          aria-label={`Xem chi tiết ${book.title}`}
+                        >
+                          ↗
+                        </button>
+                      </div>
+                      <div className="book-meta">
+                        <strong>{formatPrice(book.price)}</strong>
+                        <span>{book.category?.name || 'Chưa phân loại'}</span>
+                        <span>{book.publishedYear || 'Sách hay'}</span>
+                        <span>{book.quantity} bản</span>
+                      </div>
+                      <button
+                        className="button button-primary add-to-cart-button"
+                        onClick={() => addToCart(book)}
+                        disabled={book.quantity < 1 || Number(book.price) < 1}
+                      >
+                        {book.quantity < 1
+                          ? 'Tạm hết hàng'
+                          : Number(book.price) < 1
+                            ? 'Chưa có giá'
+                            : 'Thêm vào giỏ'}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="feedback-panel empty-panel">
+                  <span className="empty-icon" aria-hidden="true">⌕</span>
+                  <strong>
+                    {search || selectedCategory
+                      ? 'Không tìm thấy cuốn sách phù hợp'
+                      : 'Tủ sách đang được cập nhật'}
+                  </strong>
+                  <p>
+                    {search || selectedCategory
+                      ? 'Thử thay đổi từ khóa tìm kiếm hoặc chọn danh mục khác nhé.'
+                      : 'Hãy quay lại sau để khám phá những đầu sách mới.'}
+                  </p>
+                </div>
+              )}
+            </section>
 
-        <section className="about-strip" id="about">
-          <span className="about-sparkle" aria-hidden="true">✳</span>
-          <div>
-            <span className="eyebrow">ĐỌC CHẬM, SỐNG SÂU</span>
-            <h2>Mỗi cuốn sách là một người bạn.</h2>
-            <p>Mộc giúp bạn dễ dàng tìm thấy cuốn sách hợp với hành trình của mình.</p>
-          </div>
-          <div className="about-stat">
-            <strong>{books.length.toString().padStart(2, '0')}</strong>
-            <span>ĐẦU SÁCH<br />TRONG THƯ VIỆN</span>
-          </div>
-        </section>
+            <section className="about-strip" id="about">
+              <span className="about-sparkle" aria-hidden="true">✳</span>
+              <div>
+                <span className="eyebrow">ĐỌC CHẬM, SỐNG SÂU</span>
+                <h2>Mỗi cuốn sách là một người bạn.</h2>
+                <p>Bokos giúp bạn dễ dàng tìm thấy cuốn sách hợp với hành trình của mình.</p>
+              </div>
+              <div className="about-stat">
+                <strong>{books.length.toString().padStart(2, '0')}</strong>
+                <span>ĐẦU SÁCH<br />TRONG THƯ VIỆN</span>
+              </div>
+            </section>
           </>
         )}
       </main>
@@ -719,11 +724,21 @@ function App() {
                         onChange={(event) => setCheckoutForm({ ...checkoutForm, note: event.target.value })}
                       />
                     </label>
+                    <fieldset className="checkout-payment">
+                      <legend>Phương thức thanh toán</legend>
+                      <div className="checkout-payment-choice">
+                        <span className="checkout-payment-icon" aria-hidden="true">₫</span>
+                        <div>
+                          <strong>Thanh toán khi nhận hàng (COD)</strong>
+                          <p>Bạn thanh toán cho nhân viên giao hàng khi nhận sách.</p>
+                        </div>
+                      </div>
+                    </fieldset>
                     <p className="checkout-total">
-                      Thanh toán khi nhận hàng <strong>{formatPrice(cartTotal)}</strong>
+                      Số tiền cần thanh toán khi nhận <strong>{formatPrice(cartTotal)}</strong>
                     </p>
                     <button className="button button-primary cart-checkout-button" type="submit" disabled={checkoutSubmitting}>
-                      {checkoutSubmitting ? 'Đang gửi đơn...' : 'Xác nhận đặt hàng'}
+                      {checkoutSubmitting ? 'Đang gửi đơn...' : 'Đặt hàng'}
                     </button>
                   </form>
                 )}
@@ -737,6 +752,34 @@ function App() {
         <div className="toast-message" role="status">
           <span aria-hidden="true">✓</span> {authMessage}
           <button onClick={() => setAuthMessage('')} aria-label="Đóng thông báo">×</button>
+        </div>
+      )}
+
+      {orderReceipt && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOrderReceipt(null);
+          }}
+        >
+          <section className="modal-card order-receipt" role="dialog" aria-modal="true" aria-labelledby="order-receipt-title">
+            <button className="modal-close" onClick={() => setOrderReceipt(null)} aria-label="Đóng">
+              ×
+            </button>
+            <span className="eyebrow">ĐẶT HÀNG THÀNH CÔNG</span>
+            <h2 id="order-receipt-title">Đơn hàng đã được ghi nhận</h2>
+            {orderReceipt.id && <p className="order-receipt-id">Mã đơn hàng <strong>#{orderReceipt.id}</strong></p>}
+            <div className="order-payment-summary">
+              <span>Phương thức thanh toán</span>
+              <strong>Thanh toán khi nhận hàng (COD)</strong>
+              <span>Số tiền cần thanh toán</span>
+              <strong className="order-receipt-total">{formatPrice(orderReceipt.totalAmount)}</strong>
+            </div>
+            <p className="order-receipt-note">Vui lòng thanh toán cho nhân viên giao hàng khi nhận đủ sách.</p>
+            <button className="button button-primary cart-checkout-button" onClick={() => setOrderReceipt(null)}>
+              Tiếp tục mua sắm
+            </button>
+          </section>
         </div>
       )}
 
@@ -760,7 +803,7 @@ function App() {
             >
               ×
             </button>
-            <span className="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI MỘC</span>
+            <span className="eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI BOKOS</span>
             <h2 id="auth-title">
               {authMode === 'register' ? 'Tạo tài khoản' : 'Đăng nhập'}
             </h2>

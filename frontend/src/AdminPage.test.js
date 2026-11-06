@@ -6,6 +6,7 @@ jest.mock('./api', () => ({
   api: {
     getBooks: jest.fn(),
     getCategories: jest.fn(),
+    getOrders: jest.fn(),
     createBook: jest.fn(),
     uploadBookImage: jest.fn(),
     updateBook: jest.fn(),
@@ -13,15 +14,20 @@ jest.mock('./api', () => ({
     createCategory: jest.fn(),
     updateCategory: jest.fn(),
     deleteCategory: jest.fn(),
+    confirmOrder: jest.fn(),
+    cancelOrder: jest.fn(),
   },
 }));
 
 beforeEach(() => {
   api.getBooks.mockResolvedValue([]);
   api.getCategories.mockResolvedValue([{ id: 2, name: 'Văn học' }]);
+  api.getOrders.mockResolvedValue([]);
   api.createBook.mockResolvedValue({});
   api.uploadBookImage.mockResolvedValue({ imageUrl: '/uploads/book.jpg' });
   api.createCategory.mockResolvedValue({});
+  api.confirmOrder.mockResolvedValue({});
+  api.cancelOrder.mockResolvedValue({});
 });
 
 test('creates a product with its selected category and refreshes the public catalogue', async () => {
@@ -112,4 +118,63 @@ test('uploads a product image before creating the product', async () => {
       'admin-token',
     );
   });
+});
+
+test('shows order details and confirms a pending order', async () => {
+  const pendingOrder = {
+    id: 42,
+    status: 'pending',
+    customerName: 'Nguyễn An',
+    phone: '0900000000',
+    address: '12 Đường Sách',
+    totalAmount: 50000,
+    createdAt: '2026-11-05T08:00:00.000Z',
+    member: { fullName: 'Nguyễn An', email: 'an@example.com' },
+    items: [{ id: 1, bookTitle: 'Sách kiểm thử', unitPrice: 25000, quantity: 2 }],
+  };
+  api.getOrders.mockResolvedValueOnce([pendingOrder]).mockResolvedValueOnce([
+    { ...pendingOrder, status: 'confirmed' },
+  ]);
+  render(<AdminPage token="admin-token" onBooksChanged={jest.fn()} />);
+  await screen.findByRole('heading', { name: 'Thêm sản phẩm' });
+  fireEvent.click(screen.getByRole('tab', { name: 'Đơn hàng' }));
+
+  expect(await screen.findByText('Chờ xác nhận', { selector: '.admin-order-status' })).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Chi tiết đơn (1 sản phẩm)'));
+  expect(screen.getByText('Sách kiểm thử × 2')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' }));
+
+  await waitFor(() => {
+    expect(api.confirmOrder).toHaveBeenCalledWith(42, 'admin-token');
+    expect(screen.getByText('Đã xác nhận', { selector: '.admin-order-status' })).toBeInTheDocument();
+  });
+});
+
+test('requires confirmation before cancelling an order', async () => {
+  const confirmedOrder = {
+    id: 43,
+    status: 'confirmed',
+    customerName: 'Nguyễn Bình',
+    phone: '0911111111',
+    address: '24 Đường Sách',
+    totalAmount: 32000,
+    createdAt: '2026-11-05T08:00:00.000Z',
+    member: { fullName: 'Nguyễn Bình', email: 'binh@example.com' },
+    items: [{ id: 2, bookTitle: 'Sách thử', unitPrice: 32000, quantity: 1 }],
+  };
+  const confirmDialog = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  api.getOrders.mockResolvedValueOnce([confirmedOrder]).mockResolvedValueOnce([
+    { ...confirmedOrder, status: 'cancelled' },
+  ]);
+  render(<AdminPage token="admin-token" onBooksChanged={jest.fn()} />);
+  await screen.findByRole('heading', { name: 'Thêm sản phẩm' });
+  fireEvent.click(screen.getByRole('tab', { name: 'Đơn hàng' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Hủy đơn' }));
+
+  await waitFor(() => {
+    expect(api.cancelOrder).toHaveBeenCalledWith(43, 'admin-token');
+    expect(screen.getByText('Đã hủy', { selector: '.admin-order-status' })).toBeInTheDocument();
+  });
+  expect(confirmDialog).toHaveBeenCalledWith(expect.stringContaining('#43'));
+  confirmDialog.mockRestore();
 });

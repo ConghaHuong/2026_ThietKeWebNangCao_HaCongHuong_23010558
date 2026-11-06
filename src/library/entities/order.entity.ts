@@ -9,6 +9,14 @@ export enum OrderStatus {
     CANCELLED = 'cancelled',
 }
 
+export enum OrderPaymentMethod {
+    CASH_ON_DELIVERY = 'cod',
+}
+
+export enum OrderPaymentStatus {
+    UNPAID = 'unpaid',
+}
+
 @Entity('orders')
 export class Order {
     @PrimaryGeneratedColumn()
@@ -16,6 +24,22 @@ export class Order {
 
     @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
     status: OrderStatus;
+
+    @Column({
+        name: 'payment_method',
+        type: 'enum',
+        enum: OrderPaymentMethod,
+        default: OrderPaymentMethod.CASH_ON_DELIVERY,
+    })
+    paymentMethod: OrderPaymentMethod;
+
+    @Column({
+        name: 'payment_status',
+        type: 'enum',
+        enum: OrderPaymentStatus,
+        default: OrderPaymentStatus.UNPAID,
+    })
+    paymentStatus: OrderPaymentStatus;
 
     @Column({ name: 'customer_name', type: 'varchar', length: 150 })
     customerName: string;

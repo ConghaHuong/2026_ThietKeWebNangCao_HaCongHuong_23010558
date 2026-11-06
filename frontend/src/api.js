@@ -89,6 +89,15 @@ export const api = {
   getMyOrders(token, signal) {
     return request('/orders/mine', { token, signal });
   },
+  getOrders(token, signal) {
+    return request('/orders', { token, signal });
+  },
+  confirmOrder(id, token) {
+    return request(`/orders/${id}/confirm`, { method: 'PATCH', token });
+  },
+  cancelOrder(id, token) {
+    return request(`/orders/${id}/cancel`, { method: 'PATCH', token });
+  },
   getProfile(token, signal) {
     return request('/members/me', { token, signal });
   },

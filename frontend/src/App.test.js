@@ -50,7 +50,7 @@ beforeEach(() => {
   api.login.mockReset();
   api.register.mockReset();
   api.getCategories.mockResolvedValue([]);
-  api.createOrder.mockResolvedValue({ id: 17 });
+  api.createOrder.mockResolvedValue({ id: 17, totalAmount: 25000 });
 });
 
 test('loads and filters books from the library API', async () => {
@@ -159,7 +159,8 @@ test('places an order for books added to the shopping cart', async () => {
   fireEvent.change(screen.getByLabelText('Địa chỉ nhận hàng'), {
     target: { value: '123 Đường Sách' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đặt hàng' }));
+  expect(screen.getByText('Thanh toán khi nhận hàng (COD)')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Đặt hàng' }));
 
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'reader@example.com' },
@@ -171,7 +172,7 @@ test('places an order for books added to the shopping cart', async () => {
   await waitFor(() => {
     expect(screen.queryByRole('dialog', { name: 'Đăng nhập' })).not.toBeInTheDocument();
   });
-  fireEvent.click(await screen.findByRole('button', { name: 'Xác nhận đặt hàng' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Đặt hàng' }));
 
   await waitFor(() => {
     expect(api.createOrder).toHaveBeenCalledWith(
@@ -184,5 +185,7 @@ test('places an order for books added to the shopping cart', async () => {
       'member-token',
     );
   });
-  expect(await screen.findByText(/Mã đơn #17/)).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Đơn hàng đã được ghi nhận' })).toBeInTheDocument();
+  expect(screen.getByText('#17')).toBeInTheDocument();
+  expect(screen.getByText('Số tiền cần thanh toán')).toBeInTheDocument();
 });

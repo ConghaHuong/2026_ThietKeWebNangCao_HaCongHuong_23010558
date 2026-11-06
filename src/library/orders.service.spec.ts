@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { Book } from '../books/entities/book.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { Order } from './entities/order.entity';
+import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrdersService } from './orders.service';
 
@@ -19,11 +19,17 @@ describe('OrdersService', () => {
   };
   const itemRepository = {
     create: jest.fn((value) => value),
+    find: jest.fn(),
   };
+  const orderEntity = {
+    id: 22,
+    status: OrderStatus.PENDING,
+  } as Order;
   const orderRepository = {
     create: jest.fn((value) => value),
     save: jest.fn((value) => Promise.resolve({ id: 22, ...value })),
     find: jest.fn(),
+    findOne: jest.fn(),
   };
   const manager = {
     getRepository: jest.fn((entity) => {
@@ -39,11 +45,15 @@ describe('OrdersService', () => {
 
   beforeEach(() => {
     book.quantity = 5;
+    orderEntity.status = OrderStatus.PENDING;
     bookRepository.findOne.mockReset().mockResolvedValue(book);
     bookRepository.save.mockClear();
     itemRepository.create.mockClear();
+    itemRepository.find.mockReset().mockResolvedValue([]);
     orderRepository.create.mockClear();
     orderRepository.save.mockClear();
+    orderRepository.findOne.mockReset().mockResolvedValue(orderEntity);
+    orderRepository.find.mockReset();
     dataSource.transaction.mockClear();
     service = new OrdersService(
       dataSource as unknown as DataSource,
@@ -71,6 +81,8 @@ describe('OrdersService', () => {
     });
     expect(book.quantity).toBe(2);
     expect(orderRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+      paymentMethod: 'cod',
+      paymentStatus: 'unpaid',
       totalAmount: 74970,
       items: [expect.objectContaining({
         book,
@@ -100,5 +112,45 @@ describe('OrdersService', () => {
       address: 'Địa chỉ nhận hàng',
       items: [{ bookId: 999, quantity: 1 }],
     })).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('confirms only pending orders', async () => {
+    const order = await service.confirm(22);
+
+    expect(order.status).toBe(OrderStatus.CONFIRMED);
+    expect(orderRepository.save).toHaveBeenCalledWith(orderEntity);
+    expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('rejects confirmation when the order is no longer pending', async () => {
+    orderEntity.status = OrderStatus.CANCELLED;
+
+    await expect(service.confirm(22)).rejects.toBeInstanceOf(ConflictException);
+    expect(orderRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('cancels an order and restores its reserved stock atomically', async () => {
+    orderEntity.status = OrderStatus.CONFIRMED;
+    itemRepository.find.mockResolvedValue([{ book: { id: 4 }, quantity: 2 }]);
+
+    const order = await service.cancel(22);
+
+    expect(itemRepository.find).toHaveBeenCalledWith({
+      where: { order: { id: 22 } },
+      relations: ['book'],
+    });
+    expect(book.quantity).toBe(7);
+    expect(bookRepository.save).toHaveBeenCalledWith(book);
+    expect(order.status).toBe(OrderStatus.CANCELLED);
+    expect(orderRepository.save).toHaveBeenCalledWith(orderEntity);
+    expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('does not restore stock again for an already cancelled order', async () => {
+    orderEntity.status = OrderStatus.CANCELLED;
+
+    await expect(service.cancel(22)).rejects.toBeInstanceOf(ConflictException);
+    expect(itemRepository.find).not.toHaveBeenCalled();
+    expect(bookRepository.save).not.toHaveBeenCalled();
   });
 });
